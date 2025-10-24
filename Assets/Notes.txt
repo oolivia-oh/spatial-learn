@@ -1,0 +1,14 @@
+Generate lessons based on tables and spatial information.
+Seating layout in classroom.
+Room layout in school and how teachers relate to that.
+I then need data on each of the pieces of data which can be tested to see how well I know it.
+Seen, last seen, got correct. Give a retrievability score for each piece of data and add to it based on how cold that info is.
+Really I need catagories.
+I also need a score for each of the connections between data.
+Given a first name can you tell me the last name? First and last name linked strongly.
+All data in a table is heavily linked?
+
+
+Focus on seating plan first as this is the most important.
+take in x, y
+detect gaps in seating plan

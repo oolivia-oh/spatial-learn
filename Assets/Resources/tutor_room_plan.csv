@@ -1,0 +1,14 @@
+x,y,firstName,lastName,title,group,room,subject
+4.5,2,Eliza,Overton,Miss,7L,A12,geography
+8,2,Laura,Huggins,Miss,7M,A22,
+1,0,Alys,Parker,Miss,7P,B02,
+5.5,0,Steve,Read,Mr,7T,B12,maths
+8,3,Kate,Hughes,Miss,8L,A21,
+1,1,Ashley,Tolin,Mr,8M,B01,science
+10,1,Hanan,Abdi,Miss,8P,B23,
+6.5,1,Harriet,Moore,Miss,8Q,B13,maths
+5.5,1,Laura,Cunningham,Miss,8T,B11,
+4.5,3,Louis,Underwood,Ms,9L,A11,MFL
+3,2,Georgina,McDonald,Miss,9M,C01,science
+9,0,Claire,Mellor,Miss,9P,B22,english
+9,1,John,Mainwaring,Mr,9T,B21,english
