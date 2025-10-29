@@ -180,7 +180,7 @@ public class SelectableGroup {
         if (teachAscending) {
             for (int i = 0; i < chairs.Count && n < maxN; i++) {
                 if (chairs[i].attributes.ContainsKey(key) &&
-                    chairs[i].histories[key].Level == level) {
+                    chairs[i].histories[key].Level <= level) {
                     teaching.Add(chairs[i]);
                     n++;
                 }
@@ -188,7 +188,7 @@ public class SelectableGroup {
         } else {
             for (int i = chairs.Count-1; i >= 0 && n < maxN; i--) {
                 if (chairs[i].attributes.ContainsKey(key) &&
-                    chairs[i].histories[key].Level == level) {
+                    chairs[i].histories[key].Level <= level) {
                     teaching.Add(chairs[i]);
                     n++;
                 }

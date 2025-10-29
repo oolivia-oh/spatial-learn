@@ -37,9 +37,11 @@ public class Classroom : MonoBehaviour
     public int episodeIndex = 0;
     public bool teachAscending = true;
     public int toTeach = 6;
+    public bool subordinate = true;
+    public Classroom classroom;
 
     // Start is called before the first frame update
-    void OnEnable() {
+    void Start() {
         GlobalConfig.Init(colors);
         root = GetComponent<UIDocument>().rootVisualElement;
         VisualElement configContainer = new VisualElement();
@@ -71,16 +73,19 @@ public class Classroom : MonoBehaviour
         container.Add(teacher);
         container.Add(teacherEar);
         root.Add(container);
-        LoadCSV();
+        LoadCSV(chairsFileName);
         answerKey = allAttributes[0];
         answerKeyMenuButton.text = answerKey;
         teachAscending = false;
         //AskAboutChairQuestion("Who sits here?", "firstName", "Mirabel", 4);
         //AskChairClickQuestion("Where does Mirabel sit?", "firstName", "Mirabel");
         AskQuestion(TeacherMode.Explaining, "Hello!");
+        if (subordinate) {
+            root.visible = false;
+        }
     }
 
-    void Accept() {
+    public bool Accept() {
         bool allRight = false;
         switch (teacherMode) {
             case TeacherMode.AboutChairQuestion:
@@ -153,12 +158,13 @@ public class Classroom : MonoBehaviour
                         checkChair.RevealAnswer(answerKey, right);
                     }
                 }
-                if (allRight) teacherMode = TeacherMode.Explaining;
+                if (allRight) {
+                    teacherMode = TeacherMode.Explaining;
+                }
                 break;
             case TeacherMode.Explaining:
                 allRight = true;
                 WipeWhiteboard();
-                toTeach = 6;
                 int lowestLevel = mainGroup.LowestLevel(answerKey);
                 if (lowestLevelOverride.On) lowestLevel = (int)lowestLevelField.value;
                 else lowestLevelField.value = (uint)lowestLevel;
@@ -197,11 +203,21 @@ public class Classroom : MonoBehaviour
                             episodeIndex = 7;
                         }
                     }
-                } else {
+                } else if (lowestLevel == 3 || subordinate) {
                     if (mainGroup.teaching.Count == 0) {
                         mainGroup.teaching = mainGroup.chairs.GetRange(0, mainGroup.chairs.Count);
                     }
                     AskRandomRelatedInfoQuestion("", answerKey);
+                } else {
+                    if (episodeIndex == 0 || episodeIndex == 3) {
+                        root.visible = false;
+                        classroom.root.visible = true;
+                    } else {
+                        if (mainGroup.teaching.Count == 0) {
+                            mainGroup.teaching = mainGroup.chairs.GetRange(0, mainGroup.chairs.Count);
+                        }
+                        AskRandomRelatedInfoQuestion("", answerKey);
+                    }
                 }
               //if (episodeIndex == 0) {
               //    answerKey = "director";
@@ -216,10 +232,17 @@ public class Classroom : MonoBehaviour
               //}
               //AskChairClickQuestion($"Select the people with the attribute {answerKey}", answerKey, "t");
                 episodeIndex++;
+                if (teacherMode != TeacherMode.Explaining) {
+                    if (subordinate) {
+                        root.visible = false;
+                        classroom.root.visible = true;
+                    }
+                }
                 if (episodeIndex > 5) episodeIndex = 0;
                 break;
         }
         mainGroup.SaveHistories(chairsFileName);
+        return allRight;
     }
 
     void AskAboutChairQuestion(string question, string key, string value, int nChoices) {
@@ -363,9 +386,9 @@ public class Classroom : MonoBehaviour
         answerKeyMenuButton.text = key;
     }
 
-    void LoadCSV() {
+    void LoadCSV(string filename) {
         // Load CSV file from Resources
-        TextAsset file = Resources.Load<TextAsset>(chairsFileName);
+        TextAsset file = Resources.Load<TextAsset>(filename);
         if (file == null) {
             Debug.LogError("CSV file not found in Resources!");
             return;
@@ -417,16 +440,18 @@ public class Classroom : MonoBehaviour
         chairs.Sort(chairXComparer);
         mainGroup = new SelectableGroup(chairs, 0);
         Debug.Log("Loaded " + chairs.Count + " chairs from CSV!");
-        bool loadedHistory = mainGroup.LoadHistories(chairsFileName, false);
-        if (loadedHistory) Debug.Log($"Loaded history file from: {mainGroup.GetSavePath(chairsFileName)}");
+        bool loadedHistory = mainGroup.LoadHistories(filename, false);
+        if (loadedHistory) Debug.Log($"Loaded history file from: {mainGroup.GetSavePath(filename)}");
     }
 
     void Update() {
-        if (Input.GetKeyDown(KeyCode.Return)) {
-            Accept();
-        }
-        if (Input.GetKeyUp(KeyCode.Return)) {
-            if (choiceGroup.chairs.Count == 0 && root.focusController.focusedElement != teacherEar) teacherEar.Focus();
+        if (root.visible) {
+            if (Input.GetKeyDown(KeyCode.Return)) {
+                Accept();
+            }
+            if (Input.GetKeyUp(KeyCode.Return)) {
+                if (choiceGroup.chairs.Count == 0 && root.focusController.focusedElement != teacherEar) teacherEar.Focus();
+            }
         }
 //      switch (teacherMode) {
 //          case TeacherMode.AboutChairQuestion:
