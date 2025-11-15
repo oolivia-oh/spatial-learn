@@ -258,7 +258,7 @@ public class SelectableGroup {
 
     public bool CheckAnswer(string key, string answer, string guess) {
         Chair chair = GetChair(key, answer);
-        bool right = guess == answer;
+        bool right = guess.ToLower().Contains(answer.ToLower());
         chair.RevealAnswer(key, right);
         return right;
     }

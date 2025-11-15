@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Newtonsoft.Json;
+using Whisper.Utils;
 
 public enum TeacherMode {
     AboutChairQuestion,
@@ -28,6 +29,7 @@ public class Classroom : MonoBehaviour
     private TextField teacherEar;
     private Button answerKeyMenuButton;
     private List<string> allAttributes;
+    private ToggleButton speechInputToggle;
     private ToggleButton lowestLevelOverride;
     private UnsignedIntegerField lowestLevelField;
     private Chair answerChair;
@@ -38,6 +40,7 @@ public class Classroom : MonoBehaviour
     public bool teachAscending = true;
     public int toTeach = 6;
     public bool subordinate = true;
+    public SpeechManager speechManager;
     public Classroom classroom;
 
     // Start is called before the first frame update
@@ -57,8 +60,12 @@ public class Classroom : MonoBehaviour
         lowestLevelField = new UnsignedIntegerField();
         lowestLevelContainer.Add(lowestLevelOverride);
         lowestLevelContainer.Add(lowestLevelField);
+        speechInputToggle = new ToggleButton();
+        speechInputToggle.text = "Speech Input";
+        speechInputToggle.style.width = 110;
         configContainer.Add(answerKeyMenuButton);
         configContainer.Add(lowestLevelContainer);
+        configContainer.Add(speechInputToggle);
         root.Add(configContainer);
         VisualElement container = new VisualElement();
         Chair.Init(startPoint, spacingMultiplier, 90, 90, primaryKey);
@@ -68,6 +75,7 @@ public class Classroom : MonoBehaviour
         teacher = new Label("Hello");
         teacherEar = new TextField();
         choiceGroup = new SelectableGroup(new List<Chair>(), 0);
+        Debug.Log($"Contains test: {"[silence] Laura.".Contains("Laura")}");
 
         teacherEar.visible = false;
         container.Add(teacher);
@@ -77,6 +85,7 @@ public class Classroom : MonoBehaviour
         answerKey = allAttributes[0];
         answerKeyMenuButton.text = answerKey;
         teachAscending = false;
+        speechManager.OnResultReady += Accept;
         //AskAboutChairQuestion("Who sits here?", "firstName", "Mirabel", 4);
         //AskChairClickQuestion("Where does Mirabel sit?", "firstName", "Mirabel");
         AskQuestion(TeacherMode.Explaining, "Hello!");
@@ -85,11 +94,14 @@ public class Classroom : MonoBehaviour
         }
     }
 
-    public bool Accept() {
+    public void Accept() {
         bool allRight = false;
         switch (teacherMode) {
             case TeacherMode.AboutChairQuestion:
                 string selectedAnswer = teacherEar.text;
+                if (speechInputToggle.On) {
+                    selectedAnswer = speechManager.result;
+                }
                 if (choiceGroup != null && choiceGroup.selected.Count > 0) {
                     selectedAnswer = choiceGroup.selected.Peek().attributes[answerKey];
                     choiceGroup.CheckAnswer(answerKey, selectedAnswer, answer);
@@ -105,6 +117,7 @@ public class Classroom : MonoBehaviour
                 } else {
                     Chair wrongChair = mainGroup.GetChair(answerKey, answer);
                     mainGroup.GetChair(answerKey, answer).histories[answerKey].wrongTypedN++;
+                    if (speechInputToggle.On) speechManager.Record();
                     if (wrongChair.histories[answerKey].wrongTypedN == 2) {
                         wrongChair.button.text = $"{answer[0]}";
                     } else if (wrongChair.histories[answerKey].wrongTypedN > 2) {
@@ -114,7 +127,11 @@ public class Classroom : MonoBehaviour
                 break;
             case TeacherMode.RelatedInfoQuestion:
                 string typedAnswer = teacherEar.text;
-                allRight = answerChair.attributes[answerKey] == typedAnswer;
+                if (speechInputToggle.On) {
+                    typedAnswer = speechManager.result;
+                }
+                typedAnswer = typedAnswer.ToLower();
+                allRight = typedAnswer.Contains(answerChair.attributes[answerKey].ToLower());
                 mainGroup.SelectChair(answerChair);
                 answerChair.RevealAnswer(answerKey, allRight);
                 if (allRight) { // feels like should be a method
@@ -130,6 +147,7 @@ public class Classroom : MonoBehaviour
                     } else if (answerChair.histories[answerKey].wrongRelatedN > 2) {
                         answerChair.button.text = answerChair.attributes[answerKey];
                     }
+                    if (speechInputToggle.On) speechManager.Record();
                 }
                 teacherEar.Focus();
                 break;
@@ -242,7 +260,6 @@ public class Classroom : MonoBehaviour
                 break;
         }
         mainGroup.SaveHistories(chairsFileName);
-        return allRight;
     }
 
     void AskAboutChairQuestion(string question, string key, string value, int nChoices) {
@@ -262,6 +279,7 @@ public class Classroom : MonoBehaviour
         answerKey = key;
         teacherMode = TeacherMode.AboutChairQuestion;
         mainGroup.SelectChair(mainGroup.GetChair(key, value));
+        if (speechInputToggle.On) speechManager.Record();
     }
 
     void AskRandomRelatedInfoQuestion(string key1In="", string key2In="") {
@@ -295,6 +313,7 @@ public class Classroom : MonoBehaviour
         answerKey = key2;
         answerChair = chair;
         teacherEar.Focus();
+        if (speechInputToggle.On) speechManager.Record();
     }
 
     void AskChairClickQuestion(string question, string key, string value) {
@@ -447,7 +466,15 @@ public class Classroom : MonoBehaviour
     void Update() {
         if (root.visible) {
             if (Input.GetKeyDown(KeyCode.Return)) {
-                Accept();
+                if (speechInputToggle.On &&
+                    (teacherMode == TeacherMode.AboutChairQuestion ||
+                     teacherMode == TeacherMode.RelatedInfoQuestion)) {
+                    if (!speechManager.StopRecord()) {
+                        Accept();
+                    }
+                } else {
+                    Accept();
+                }
             }
             if (Input.GetKeyUp(KeyCode.Return)) {
                 if (choiceGroup.chairs.Count == 0 && root.focusController.focusedElement != teacherEar) teacherEar.Focus();
