@@ -41,10 +41,32 @@ public class SpeechManager : MonoBehaviour
             return;
         }
         result = whisperResult.Result;
-        Debug.Log($"Order: {result}");
         OnResultReady?.Invoke();
     }
-    
+
+    public static string TrimFluff(string result) {
+        string trimmed = result.ToLower();
+        trimmed = trimmed.Replace("[pause]", "");
+        trimmed = trimmed.Replace("[silence]", "");
+        // Some will be broken replacing bits of words
+        trimmed = trimmed.Replace("zero", "0");
+        trimmed = trimmed.Replace("one", "1");
+        trimmed = trimmed.Replace("two", "2");
+        trimmed = trimmed.Replace("three", "3");
+        trimmed = trimmed.Replace("four", "4");
+        trimmed = trimmed.Replace("five", "5");
+        trimmed = trimmed.Replace("six", "6");
+        trimmed = trimmed.Replace("seven", "7");
+        trimmed = trimmed.Replace("eight", "8");
+        trimmed = trimmed.Replace("nine", "9");
+        trimmed = trimmed.Replace("ten", "10");
+        trimmed = trimmed.Trim();
+        if (trimmed != "" && trimmed[trimmed.Length-1] == '.') {
+            trimmed = trimmed.Remove(trimmed.Length-1);
+        }
+        return trimmed;
+    }
+
   //private void OnNewSegment(WhisperSegment segment)
   //{
   //    if (!streamSegments || !outputText)

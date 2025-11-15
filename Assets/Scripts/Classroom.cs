@@ -11,6 +11,7 @@ public enum TeacherMode {
     ChairClickQuestion,
     MatchChairQuestion,
     RelatedInfoQuestion,
+    MathsQuestion,
     Explaining
 } 
 
@@ -20,6 +21,8 @@ public class Classroom : MonoBehaviour
     public string primaryKey;
     public Vector2 startPoint;
     public float spacingMultiplier;
+    public float questionParTime = 6.0f;
+    public float questionTimePerChar = 0.5f;
     public Lesson lesson;
     public ColorPalette colors;
     private SelectableGroup choiceGroup;
@@ -33,13 +36,14 @@ public class Classroom : MonoBehaviour
     private ToggleButton lowestLevelOverride;
     private UnsignedIntegerField lowestLevelField;
     private Chair answerChair;
-    private string answer; // DEPRECATED
+    private string answer; // DEPRECATED? needed for maths
     private string answerKey;
     private TeacherMode teacherMode; 
     public int episodeIndex = 0;
     public bool teachAscending = true;
     public int toTeach = 6;
     public bool subordinate = true;
+    private float startTime;
     public SpeechManager speechManager;
     public Classroom classroom;
 
@@ -96,17 +100,20 @@ public class Classroom : MonoBehaviour
 
     public void Accept() {
         bool allRight = false;
+        string typedAnswer = teacherEar.text;
+        if (speechInputToggle.On) {
+            typedAnswer = speechManager.result;
+            typedAnswer = SpeechManager.TrimFluff(typedAnswer);
+            Debug.Log($"Trimmed answer: {typedAnswer}");
+        }
+        typedAnswer = typedAnswer.ToLower();
         switch (teacherMode) {
             case TeacherMode.AboutChairQuestion:
-                string selectedAnswer = teacherEar.text;
-                if (speechInputToggle.On) {
-                    selectedAnswer = speechManager.result;
-                }
                 if (choiceGroup != null && choiceGroup.selected.Count > 0) {
-                    selectedAnswer = choiceGroup.selected.Peek().attributes[answerKey];
-                    choiceGroup.CheckAnswer(answerKey, selectedAnswer, answer);
+                    typedAnswer = choiceGroup.selected.Peek().attributes[answerKey];
+                    choiceGroup.CheckAnswer(answerKey, typedAnswer, answer);
                 }
-                allRight = mainGroup.CheckAnswer(answerKey, answer, selectedAnswer);
+                allRight = mainGroup.CheckAnswer(answerKey, answer, typedAnswer);
                 if (allRight) {// BROKEN for multichoice
                     teacherMode = TeacherMode.Explaining;
                     Chair rightChair = mainGroup.GetChair(answerKey, answer);
@@ -126,11 +133,6 @@ public class Classroom : MonoBehaviour
                 }// BROKEN for multichoice
                 break;
             case TeacherMode.RelatedInfoQuestion:
-                string typedAnswer = teacherEar.text;
-                if (speechInputToggle.On) {
-                    typedAnswer = speechManager.result;
-                }
-                typedAnswer = typedAnswer.ToLower();
                 allRight = typedAnswer.Contains(answerChair.attributes[answerKey].ToLower());
                 mainGroup.SelectChair(answerChair);
                 answerChair.RevealAnswer(answerKey, allRight);
@@ -147,6 +149,15 @@ public class Classroom : MonoBehaviour
                     } else if (answerChair.histories[answerKey].wrongRelatedN > 2) {
                         answerChair.button.text = answerChair.attributes[answerKey];
                     }
+                    if (speechInputToggle.On) speechManager.Record();
+                }
+                teacherEar.Focus();
+                break;
+            case TeacherMode.MathsQuestion:
+                if (typedAnswer == answer.ToLower()) {
+                    teacherMode = TeacherMode.Explaining;
+                    if (speechInputToggle.On) teacherEar.value = answer;
+                } else {
                     if (speechInputToggle.On) speechManager.Record();
                 }
                 teacherEar.Focus();
@@ -208,7 +219,7 @@ public class Classroom : MonoBehaviour
                     }
                     if (episodeIndex == 1) {
                         if (lowestLevel < 2) {
-                            AskMatchQuestion(answerKey);
+                            AskQuestion(TeacherMode.MatchChairQuestion, "", answerKey);
                             //AskChairClickQuestion($"Select the people with the attribute {answerKey}", answerKey, "t");
                         } else {
                             episodeIndex++;
@@ -361,6 +372,33 @@ public class Classroom : MonoBehaviour
         choiceGroup.dragTargets = mainGroup.selected.ToList();
     }
 
+    void RandomChairDistruption() {
+    }
+    void AskTimesTableQuestion() {
+        int a = (int)Random.Range(2,12);
+        int b = (int)Random.Range(2,12);
+        int c = a * b;
+        teacher.text = $"{a} * {b} =";
+        answer = $"{c}";
+    }
+    void AskDivisionQuestion() {
+        int a = (int)Random.Range(2,12);
+        int b = (int)Random.Range(2,12);
+        int c = a * b;
+        teacher.text = $"{c} / {a} =";
+        answer = $"{b}";
+    }
+    void AskMathsQuestion() {
+        teacherMode = TeacherMode.MathsQuestion;
+        AskDivisionQuestion();
+        teacherEar.value = "";
+        teacherEar.visible = true;
+        teacherEar.Focus();
+        if (speechInputToggle.On) speechManager.Record();
+    }
+    void AskRandomRelatedQuestionOtherDataset() {
+    }
+
     void WipeWhiteboard() {
         mainGroup.ClearSelection();
         mainGroup.nSelectable = 0;
@@ -371,10 +409,16 @@ public class Classroom : MonoBehaviour
         teacher.text = "";
     }
 
-    public void AskQuestion(TeacherMode mode, string question, string key = "", string value = "", int nChoices = 0, int startIndex = 0) {
+    public void AskQuestion(TeacherMode mode, string question="", string key="", string value="", int nChoices=0, int startIndex=0) {
+        teacherMode = mode;
+        startTime = Time.time;
         switch (mode) {
             case TeacherMode.MatchChairQuestion:
-                AskMatchQuestion(key, startIndex, nChoices);
+                if (nChoices==0) {
+                    AskMatchQuestion(key);
+                } else {
+                    AskMatchQuestion(key, startIndex, nChoices);
+                }
                 break;
             case TeacherMode.ChairClickQuestion:
                 AskChairClickQuestion(question, key, value);
@@ -384,10 +428,15 @@ public class Classroom : MonoBehaviour
                 break;
             case TeacherMode.Explaining:
                 teacher.text = question;
-                teacherMode = mode;
                 break;
         }
     }
+
+    bool ModeIsTyped(TeacherMode mode) {
+        return teacherMode == TeacherMode.AboutChairQuestion ||
+               teacherMode == TeacherMode.RelatedInfoQuestion ||
+               teacherMode == TeacherMode.MathsQuestion;
+    } 
 
     void Dropdown() {
         GenericDropdownMenu menu = new GenericDropdownMenu();
@@ -466,9 +515,7 @@ public class Classroom : MonoBehaviour
     void Update() {
         if (root.visible) {
             if (Input.GetKeyDown(KeyCode.Return)) {
-                if (speechInputToggle.On &&
-                    (teacherMode == TeacherMode.AboutChairQuestion ||
-                     teacherMode == TeacherMode.RelatedInfoQuestion)) {
+                if (speechInputToggle.On && ModeIsTyped(teacherMode)) {
                     if (!speechManager.StopRecord()) {
                         Accept();
                     }
