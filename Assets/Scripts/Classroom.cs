@@ -25,6 +25,7 @@ public class Classroom : MonoBehaviour
     public float questionTimePerChar = 0.5f;
     public Lesson lesson;
     public ColorPalette colors;
+    public VideoUI videoUI;
     private SelectableGroup choiceGroup;
     private SelectableGroup mainGroup;
     private VisualElement root;
@@ -70,6 +71,14 @@ public class Classroom : MonoBehaviour
         configContainer.Add(answerKeyMenuButton);
         configContainer.Add(lowestLevelContainer);
         configContainer.Add(speechInputToggle);
+        if (!subordinate) {
+            List<string> clipNames = new List<string>();
+            clipNames.Add("BSL/airplane");
+            clipNames.Add("BSL/airport");
+            videoUI.LoadClips(clipNames);
+            root.Add(videoUI.videoContainers[0]);
+            root.Add(videoUI.videoContainers[1]);
+        }
         root.Add(configContainer);
         VisualElement container = new VisualElement();
         Chair.Init(startPoint, spacingMultiplier, 90, 90, primaryKey);
