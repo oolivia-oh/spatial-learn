@@ -32,7 +32,6 @@ public class Classroom : MonoBehaviour
     private Label teacher;
     private TextField teacherEar;
     private Button answerKeyMenuButton;
-    private List<string> allAttributes;
     private ToggleButton speechInputToggle;
     private ToggleButton lowestLevelOverride;
     private UnsignedIntegerField lowestLevelField;
@@ -73,8 +72,8 @@ public class Classroom : MonoBehaviour
         configContainer.Add(speechInputToggle);
         if (!subordinate) {
             List<string> clipNames = new List<string>();
-            clipNames.Add("BSL/airplane");
-            clipNames.Add("BSL/airport");
+            clipNames.Add("bsl/airplane");
+            clipNames.Add("bsl/airport");
             videoUI.LoadClips(clipNames);
             root.Add(videoUI.videoContainers[0]);
             root.Add(videoUI.videoContainers[1]);
@@ -94,8 +93,8 @@ public class Classroom : MonoBehaviour
         container.Add(teacher);
         container.Add(teacherEar);
         root.Add(container);
-        LoadCSV(chairsFileName);
-        answerKey = allAttributes[0];
+        mainGroup = new SelectableGroup(chairsFileName, toTeach, root);
+        answerKey = mainGroup.allAttributes[0];
         answerKeyMenuButton.text = answerKey;
         teachAscending = false;
         speechManager.OnResultReady += Accept;
@@ -449,7 +448,7 @@ public class Classroom : MonoBehaviour
 
     void Dropdown() {
         GenericDropdownMenu menu = new GenericDropdownMenu();
-        foreach (string attribute in allAttributes) {
+        foreach (string attribute in mainGroup.allAttributes) {
             menu.AddItem(attribute, false, value => {DropdownSelect(value);}, attribute);
         }
         menu.DropDown(answerKeyMenuButton.worldBound, answerKeyMenuButton, false);
@@ -461,64 +460,6 @@ public class Classroom : MonoBehaviour
         teacherMode = TeacherMode.Explaining;
         WipeWhiteboard();
         answerKeyMenuButton.text = key;
-    }
-
-    void LoadCSV(string filename) {
-        // Load CSV file from Resources
-        TextAsset file = Resources.Load<TextAsset>(filename);
-        if (file == null) {
-            Debug.LogError("CSV file not found in Resources!");
-            return;
-        }
-
-        string[] lines = file.text.Split('\n');
-
-        int x_column = 0;
-        int y_column = 0;
-        string[] headers = lines[0].Split(',');
-        List<Chair> chairs = new List<Chair>();
-        allAttributes = new List<string>();
-        for (int i = 0; i < headers.Length; i++) {
-            if (headers[i] == "x") {
-                x_column = i;
-            } else if (headers[i] == "y") {
-                y_column = i;
-            } else {
-                allAttributes.Add(headers[i]);
-            }
-        }
-        for (int i = 1; i < lines.Length; i++)
-        {
-            string[] values = lines[i].Split(',');
-
-            float x;
-            float y;
-            if (string.IsNullOrWhiteSpace(lines[i]) ||
-                !float.TryParse(values[x_column], out x) ||
-                !float.TryParse(values[y_column], out y)
-            ) continue;
-
-            Dictionary<string, string> attributes = new Dictionary<string, string>();
-            for (int j = 0; j < values.Length; j++) {
-                if (
-                    !string.IsNullOrWhiteSpace(values[j]) &&
-                    j != x_column &&
-                    j != y_column
-                ) {
-                    attributes[headers[j].Trim()] = values[j].Trim();
-                }
-            }
-
-            Chair chair = new Chair(x, y, attributes, root);
-            chairs.Add(chair);
-        }
-
-        ChairXComparer chairXComparer = new ChairXComparer();
-        chairs.Sort(chairXComparer);
-        mainGroup = new SelectableGroup(chairs, 0);
-        Debug.Log("Loaded " + chairs.Count + " chairs from CSV!");
-        bool loadedHistory = mainGroup.LoadHistories(filename, false);
-        if (loadedHistory) Debug.Log($"Loaded history file from: {mainGroup.GetSavePath(filename)}");
     }
 
     void Update() {

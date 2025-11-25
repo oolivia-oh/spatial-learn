@@ -20,18 +20,32 @@ public class SelectableGroup {
     public GroupMode mode = GroupMode.Click;
     public List<Chair> dragTargets;
     private Chair draggingChair = null;
+    public List<string> allAttributes;
 
-    public SelectableGroup (List<Chair> i_chairs, int i_nSelectable) {
+    private void Init() {
         selected = new Queue<Chair>();
         teaching = new List<Chair>();
-        nSelectable = i_nSelectable;
-        chairs = i_chairs;
         foreach (Chair chair in chairs) {
             chair.button.RegisterCallback<PointerDownEvent>((PointerDownEvent evt) => OnPointerDown(chair.attributes, evt), TrickleDown.TrickleDown);
             chair.button.RegisterCallback<PointerMoveEvent>((PointerMoveEvent evt) => OnPointerMove(chair.attributes, evt));
             chair.button.RegisterCallback<PointerUpEvent>((PointerUpEvent evt) => OnPointerUp(chair.attributes, evt));
             setIdAttributes(chair);
         }
+    }
+
+    public SelectableGroup(string filename, int i_nSelectable, VisualElement root) {
+        nSelectable = i_nSelectable;
+        LoadChairs(filename, root);
+        bool loadedHistory = LoadHistories(filename, false);
+        if (loadedHistory) Debug.Log($"Loaded history file from: {GetSavePath(filename)}");
+        Init();
+    }
+
+    public SelectableGroup(List<Chair> i_chairs, int i_nSelectable) {
+        nSelectable = i_nSelectable;
+        chairs = i_chairs;
+        allAttributes = new List<string>();
+        Init();
     }
 
     public void setIdAttributes(Chair chair) {
@@ -327,5 +341,59 @@ public class SelectableGroup {
             }
         }
         return loadedFile;
+    }
+
+    public void LoadChairs(string filename, VisualElement root) {
+        // Load CSV file from Resources
+        TextAsset file = Resources.Load<TextAsset>(filename);
+        if (file == null) {
+            Debug.LogError("CSV file not found in Resources!");
+            return;
+        }
+
+        string[] lines = file.text.Split('\n');
+
+        int x_column = 0;
+        int y_column = 0;
+        string[] headers = lines[0].Split(',');
+        chairs = new List<Chair>();
+        allAttributes = new List<string>();
+        for (int i = 0; i < headers.Length; i++) {
+            if (headers[i] == "x") {
+                x_column = i;
+            } else if (headers[i] == "y") {
+                y_column = i;
+            } else {
+                allAttributes.Add(headers[i]);
+            }
+        }
+        for (int i = 1; i < lines.Length; i++)
+        {
+            string[] values = lines[i].Split(',');
+
+            float x;
+            float y;
+            if (string.IsNullOrWhiteSpace(lines[i]) ||
+                !float.TryParse(values[x_column], out x) ||
+                !float.TryParse(values[y_column], out y)
+            ) continue;
+
+            Dictionary<string, string> attributes = new Dictionary<string, string>();
+            for (int j = 0; j < values.Length; j++) {
+                if (
+                    !string.IsNullOrWhiteSpace(values[j]) &&
+                    j != x_column &&
+                    j != y_column
+                ) {
+                    attributes[headers[j].Trim()] = values[j].Trim();
+                }
+            }
+
+            Chair chair = new Chair(x, y, attributes, root);
+            chairs.Add(chair);
+        }
+
+        ChairXComparer chairXComparer = new ChairXComparer();
+        chairs.Sort(chairXComparer);
     }
 }
