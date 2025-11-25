@@ -86,14 +86,14 @@ public class SelectableGroup {
         List<Chair> answers = GetRelatedChairs(answerKey, answer);
         foreach (Chair chair in answers) {
             if (selected.Contains(chair)) {
-                chair.RevealAnswer(answerKey, true);
+                chair.RevealAnswer(answerKey, null, true);
             } else {
                 allRight = false;
             }
         }
         foreach (Chair chair in selected) {
             if (!answers.Contains(chair)) {
-                chair.RevealAnswer(answerKey, false);
+                chair.RevealAnswer(answerKey, null, false);
                 allRight = false;
             }
         }
@@ -273,7 +273,7 @@ public class SelectableGroup {
     public bool CheckAnswer(string key, string answer, string guess) {
         Chair chair = GetChair(key, answer);
         bool right = guess.ToLower().Contains(answer.ToLower());
-        chair.RevealAnswer(key, right);
+        chair.RevealAnswer(key, null, right);
         return right;
     }
 
@@ -288,6 +288,7 @@ public class SelectableGroup {
             Chair chair = selected.Dequeue();
             chair.button.style.backgroundColor = GlobalConfig.colors.background;
             chair.button.text = "";
+            chair.button.Clear();
         }
     }
 

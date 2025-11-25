@@ -63,7 +63,8 @@ public class Chair {
         root.Add(button);
     }
 
-    public void ShowAttribute(string key, bool showPrimary=true) {
+    public void ShowAttribute(string key, VideoUI videoUI, bool showPrimary=true) {
+        button.Clear();
         if (showPrimary) {
             if (attributes[key] == "t")   button.text = $"{attributes[s_primaryKey]}:\n{key}";
             else if (key != s_primaryKey) button.text = $"{attributes[s_primaryKey]}\n{attributes[key]}";
@@ -72,12 +73,15 @@ public class Chair {
             if (attributes[key] == "t")   button.text = key;
             else                          button.text = attributes[key];
         }
+        if (key[key.Length-1] == '*' && videoUI != null) {
+            button.Add(videoUI.LoadClip(attributes[key]));
+        }
     }
 
-    public void RevealAnswer(string key, bool right) {
+    public void RevealAnswer(string key, VideoUI videoUI, bool right) {
         if (right) {
             button.style.backgroundColor = GlobalConfig.colors.right;
-            ShowAttribute(key);
+            ShowAttribute(key, videoUI);
         } else {
             button.style.backgroundColor = GlobalConfig.colors.wrong;
         }

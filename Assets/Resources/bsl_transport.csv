@@ -1,0 +1,16 @@
+x,y,name,video*,category
+0,0,airplane,bsl/airplane,object
+0.5,1,airport,bsl/airport,object
+1,0,helicopter,bsl/helicopter,object
+2.5,1,boat,bsl/boat,object
+4,0,bicycle,bsl/bicycle,object
+5,0,motorbike,bsl/motorbike,object
+0,2.5,car,bsl/car,object
+1,2.5,taxi,bsl/taxi,object
+1,3.5,bus,bsl/bus,object
+0,3.5,lorry,bsl/lorry,object
+2.5,2.5,train,bsl/train,object
+5,2.5,tram,bsl/tram,object
+3.5,2.5,tube,bsl/tube,object
+3,3.5,railway station,bsl/railway-station,object
+4.5,3.5,ticket,bsl/ticket,object

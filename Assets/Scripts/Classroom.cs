@@ -21,6 +21,8 @@ public class Classroom : MonoBehaviour
     public string primaryKey;
     public Vector2 startPoint;
     public float spacingMultiplier;
+    public float buttonWidth;
+    public float buttonHeight;
     public float questionParTime = 6.0f;
     public float questionTimePerChar = 0.5f;
     public Lesson lesson;
@@ -70,17 +72,9 @@ public class Classroom : MonoBehaviour
         configContainer.Add(answerKeyMenuButton);
         configContainer.Add(lowestLevelContainer);
         configContainer.Add(speechInputToggle);
-        if (!subordinate) {
-            List<string> clipNames = new List<string>();
-            clipNames.Add("bsl/airplane");
-            clipNames.Add("bsl/airport");
-            videoUI.LoadClips(clipNames);
-            root.Add(videoUI.videoContainers[0]);
-            root.Add(videoUI.videoContainers[1]);
-        }
         root.Add(configContainer);
         VisualElement container = new VisualElement();
-        Chair.Init(startPoint, spacingMultiplier, 90, 90, primaryKey);
+        Chair.Init(startPoint, spacingMultiplier, buttonWidth, buttonHeight, primaryKey);
         container.style.justifyContent = Justify.Center;
         container.style.flexDirection = FlexDirection.Column;
         container.style.alignItems = Align.Center;
@@ -109,6 +103,8 @@ public class Classroom : MonoBehaviour
     public void Accept() {
         bool allRight = false;
         string typedAnswer = teacherEar.text;
+        Chair rightChair;
+        Chair wrongChair;
         if (speechInputToggle.On) {
             typedAnswer = speechManager.result;
             typedAnswer = SpeechManager.TrimFluff(typedAnswer);
@@ -124,13 +120,13 @@ public class Classroom : MonoBehaviour
                 allRight = mainGroup.CheckAnswer(answerKey, answer, typedAnswer);
                 if (allRight) {// BROKEN for multichoice
                     teacherMode = TeacherMode.Explaining;
-                    Chair rightChair = mainGroup.GetChair(answerKey, answer);
+                    rightChair = mainGroup.GetChair(answerKey, answer);
                     rightChair.histories[answerKey].rightTypedN++;
                     if (rightChair.histories[answerKey].wrongTypedN < rightChair.histories[answerKey].rightTypedN) {
                         mainGroup.teaching.Remove(rightChair);
                     }
                 } else {
-                    Chair wrongChair = mainGroup.GetChair(answerKey, answer);
+                    wrongChair = mainGroup.GetChair(answerKey, answer);
                     mainGroup.GetChair(answerKey, answer).histories[answerKey].wrongTypedN++;
                     if (speechInputToggle.On) speechManager.Record();
                     if (wrongChair.histories[answerKey].wrongTypedN == 2) {
@@ -143,7 +139,7 @@ public class Classroom : MonoBehaviour
             case TeacherMode.RelatedInfoQuestion:
                 allRight = typedAnswer.Contains(answerChair.attributes[answerKey].ToLower());
                 mainGroup.SelectChair(answerChair);
-                answerChair.RevealAnswer(answerKey, allRight);
+                answerChair.RevealAnswer(answerKey, videoUI, allRight);
                 if (allRight) { // feels like should be a method
                     teacherMode = TeacherMode.Explaining;
                     answerChair.histories[answerKey].rightRelatedN++;
@@ -171,8 +167,22 @@ public class Classroom : MonoBehaviour
                 teacherEar.Focus();
                 break;
             case TeacherMode.ChairClickQuestion:
-                allRight = mainGroup.RightOnMatch(answerKey, answer);
-                if (allRight) teacherMode = TeacherMode.Explaining;
+                if (mainGroup.selected.Count == 1) {
+                    allRight = mainGroup.RightOnMatch(answerKey, answer);
+                    if (allRight) {
+                        teacherMode = TeacherMode.Explaining;
+                        rightChair = mainGroup.GetChair(answerKey, answer);
+                        rightChair.histories[answerKey].rightTypedN++;
+                        if (rightChair.histories[answerKey].wrongTypedN < rightChair.histories[answerKey].rightTypedN) {
+                            mainGroup.teaching.Remove(rightChair);
+                            Debug.Log($"Removed {answer}");
+                        } else {
+                            Debug.Log($"Not removed {answer}");
+                        }
+                    } else {
+                        mainGroup.GetChair(answerKey, answer).histories[answerKey].wrongTypedN++;
+                    }
+                }
                 break;
             case TeacherMode.MatchChairQuestion:
                 allRight = true;
@@ -180,11 +190,11 @@ public class Classroom : MonoBehaviour
                     Chair checkChair = mainGroup.GetChairFromPos(chair);
                     if (checkChair == null) {
                         allRight = false;
-                        chair.RevealAnswer(answerKey, false);
+                        chair.RevealAnswer(answerKey, videoUI, false);
                         continue;
                     }
                     bool right = checkChair.attributes.ContainsKey(answerKey) && chair.attributes[answerKey] == checkChair.attributes[answerKey];
-                    chair.RevealAnswer(answerKey, right);
+                    chair.RevealAnswer(answerKey, videoUI, right);
                     if (right) {
                         checkChair.histories[answerKey].rightMultiChoiceN++;
                     } else {
@@ -192,7 +202,7 @@ public class Classroom : MonoBehaviour
                         chair.Y = chair.Y;
                         allRight = false;
                         checkChair.histories[answerKey].wrongMultiChoiceN++;
-                        checkChair.RevealAnswer(answerKey, right);
+                        checkChair.RevealAnswer(answerKey, videoUI, right);
                     }
                 }
                 if (allRight) {
@@ -218,7 +228,7 @@ public class Classroom : MonoBehaviour
                         mainGroup.SetTeachingChairs(answerKey, teachAscending, lowestLevel, toTeach);
                         if (lowestLevel == 0) {
                             foreach (Chair chair in mainGroup.teaching) {
-                                chair.ShowAttribute(answerKey);
+                                chair.ShowAttribute(answerKey, videoUI);
                                 mainGroup.SelectChair(chair);
                             }
                         } else {
@@ -228,14 +238,17 @@ public class Classroom : MonoBehaviour
                     if (episodeIndex == 1) {
                         if (lowestLevel < 2) {
                             AskQuestion(TeacherMode.MatchChairQuestion, "", answerKey);
-                            //AskChairClickQuestion($"Select the people with the attribute {answerKey}", answerKey, "t");
                         } else {
                             episodeIndex++;
                         }
                     }
                     if (episodeIndex > 1) {
                         if (mainGroup.teaching.Count > 0) {
-                            AskAboutChairQuestion("Who sits here?", answerKey, mainGroup.GetRandomTeachingChair().attributes[answerKey], 0);
+                            if (answerKey[answerKey.Length-1] == '*') {
+                                AskChairClickQuestion($"Select the position of", answerKey, mainGroup.GetRandomTeachingChair().attributes[answerKey]);
+                            } else {
+                                AskAboutChairQuestion("Who sits here?", answerKey, mainGroup.GetRandomTeachingChair().attributes[answerKey], 0);
+                            }
                         } else {
                             episodeIndex = 7;
                         }
@@ -291,7 +304,7 @@ public class Classroom : MonoBehaviour
         } else {
             choiceGroup = mainGroup.RandomSelectionAround(key, value, nChoices);
             foreach (Chair choice in choiceGroup.chairs) {
-                choice.ShowAttribute(key);
+                choice.ShowAttribute(key, videoUI);
             }
         }
         answer = value;
@@ -324,7 +337,11 @@ public class Classroom : MonoBehaviour
             }
             possible = nMatch == 1 && key1 != key2;
         }
-        teacher.text = $"If {key1} is {chair.attributes[key1]} what is their {key2}";
+        if (key1[key1.Length-1] == '*') {
+            teacher.Add(videoUI.LoadClip(chair.attributes[key1]));
+        } else {
+            teacher.text = $"If {key1} is {chair.attributes[key1]} what is their {key2}";
+        }
         mainGroup.nSelectable = 1;
         mainGroup.mode = GroupMode.Program;
         teacherEar.visible = true;
@@ -337,6 +354,10 @@ public class Classroom : MonoBehaviour
 
     void AskChairClickQuestion(string question, string key, string value) {
         teacher.text = question;
+        teacher.Clear();
+        if (key[key.Length-1] == '*' && videoUI != null) {
+            teacher.Add(videoUI.LoadClip(value));
+        }
         List<Chair> allAnswers = mainGroup.GetRelatedChairs(key, value);
         mainGroup.nSelectable = allAnswers.Count;
         mainGroup.mode = GroupMode.Click;
@@ -357,7 +378,7 @@ public class Classroom : MonoBehaviour
             mainGroup.SelectChair(chair);
         }
         foreach (Chair choice in choiceGroup.chairs) {
-            choice.ShowAttribute(key, false);
+            choice.ShowAttribute(key, videoUI, false);
         }
         choiceGroup.mode = GroupMode.Drag;
         choiceGroup.dragTargets = mainGroup.selected.ToList();
@@ -415,6 +436,7 @@ public class Classroom : MonoBehaviour
         teacherEar.value = "";
         teacherEar.visible = false;
         teacher.text = "";
+        teacher.Clear();
     }
 
     public void AskQuestion(TeacherMode mode, string question="", string key="", string value="", int nChoices=0, int startIndex=0) {

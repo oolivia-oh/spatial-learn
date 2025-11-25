@@ -9,8 +9,10 @@ public class VideoUI : MonoBehaviour {
     public List<RenderTexture> videoTextures;
     public List<VisualElement> videoContainers;
     public List<VideoPlayer> videoPlayers;
+    private int index;
 
     void Start() {
+        index = 0;
         if (videoTextures.Count != videoPlayers.Count) {
             Debug.LogError("Textures and players count mismatch");
             return;
@@ -23,14 +25,26 @@ public class VideoUI : MonoBehaviour {
             videoContainers[i].style.backgroundImage = new StyleBackground(Background.FromRenderTexture(videoTextures[i]));
         }
     }
+
+    public VisualElement LoadClip(string name) {
+        VisualElement container = videoContainers[index];
+        VideoClip clip = Resources.Load<VideoClip>(name);
+        if (clip == null) {
+            Debug.LogError($"{name} video not found");
+        }
+        videoPlayers[index].clip = clip;
+        index++;
+        if (index >= videoPlayers.Count) index = 0;
+        return container;
+    }
     
-    public void LoadClips(List<string> clipNames) {
-        if (clipNames.Count > videoPlayers.Count) {
+    public void LoadClips(List<string> names) {
+        if (names.Count > videoPlayers.Count) {
             Debug.LogError("Too many clips");
             return;
         }
-        for (int i = 0; i < clipNames.Count; i++) {
-            VideoClip clip = Resources.Load<VideoClip>(clipNames[i]);
+        for (int i = 0; i < names.Count; i++) {
+            VideoClip clip = Resources.Load<VideoClip>(names[i]);
             if (clip == null) {
                 Debug.LogError("video not found");
             }
